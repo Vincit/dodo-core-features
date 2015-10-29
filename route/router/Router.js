@@ -16,7 +16,7 @@ function Router(expressRouter, defaultAuthHandler, unauthenticatedStatusCode) {
    */
   this.expressRouter = expressRouter;
   /**
-   * @type {function(req, transaction):boolean}
+   * @type {function(req):boolean}
    */
   this.defaultAuthHandler = defaultAuthHandler || null;
   /**
@@ -81,11 +81,11 @@ function Router(expressRouter, defaultAuthHandler, unauthenticatedStatusCode) {
  * ```js
  * router
  *   .get('/some/path/:id')
- *   .auth(function (req, transaction) {
+ *   .auth(function (req) {
  *     // Authenticate admins. We could also return a promise from here.
  *     return req.user.role === req.models.User.Role.Admin;
  *   })
- *   .handler(function (req, res, transaction) {
+ *   .handler(function (req, res, next) {
  *     // This is only executed if the `auth` function returned true.
  *   });
  * ```
@@ -95,11 +95,11 @@ function Router(expressRouter, defaultAuthHandler, unauthenticatedStatusCode) {
  * ```js
  * router
  *   .get('/some/path/:id')
- *   .auth(function (req, transaction) {
+ *   .auth(function (req) {
  *     this.foo = 'bar';
  *     return true;
  *   })
- *   .handler(function (req, res, transaction) {
+ *   .handler(function (req, res, next) {
  *     console.log(this.foo); // --> 'bar'
  *     return this;
  *   });
@@ -113,7 +113,7 @@ Router.prototype.get = function (path) {
 };
 
 /**
- * Creates a PUT request handler that plays nice with promises and knex.js transactions.
+ * Creates a PUT request handler that plays nice with promises.
  *
  * @see Router#get For detailed documentation on how to use this method.
  * @param {String} path
@@ -124,7 +124,7 @@ Router.prototype.put = function (path) {
 };
 
 /**
- * Creates a PATCH request handler that plays nice with promises and knex.js transactions.
+ * Creates a PATCH request handler that plays nice with promises.
  *
  * @see Router#get For detailed documentation on how to use this method.
  * @param {String} path
@@ -135,7 +135,7 @@ Router.prototype.patch = function (path) {
 };
 
 /**
- * Creates a POST request handler that plays nice with promises and knex.js transactions.
+ * Creates a POST request handler that plays nice with promises.
  *
  * @see Router#get For detailed documentation on how to use this method.
  * @param {String} path
@@ -146,7 +146,7 @@ Router.prototype.post = function (path) {
 };
 
 /**
- * Creates a DELETE request handler that plays nice with promises and knex.js transactions.
+ * Creates a DELETE request handler that plays nice with promises.
  *
  * @see Router#get For detailed documentation on how to use this method.
  * @param {String} path

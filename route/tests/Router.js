@@ -86,16 +86,10 @@ describe('Router', function () {
 
       it('should be able to return json from handler', function (done) {
         var sendData = {some: 'data'};
-        var transactionSpy = request.db.transaction;
-        var endSpy = response.end;
-        var sendSpy = response.send;
 
         response.onEnd = function () {
           expect(this.statusCode).to.equal(200);
           expect(this.sentData).to.eql(JSON.stringify(sendData));
-          expect(transactionSpy.calls).to.have.length(0);
-          expect(endSpy.calls).to.have.length(1);
-          expect(sendSpy.calls).to.have.length(1);
           done();
         };
 
@@ -112,16 +106,10 @@ describe('Router', function () {
 
       it('should be able to return a promise from handler', function (done) {
         var sendData = {some: 'data'};
-        var transactionSpy = request.db.transaction;
-        var endSpy = response.end;
-        var sendSpy = response.send;
 
         response.onEnd = function () {
           expect(this.statusCode).to.equal(200);
           expect(this.sentData).to.eql(JSON.stringify(sendData));
-          expect(transactionSpy.calls).to.have.length(0);
-          expect(endSpy.calls).to.have.length(1);
-          expect(sendSpy.calls).to.have.length(1);
           done();
         };
 
@@ -184,9 +172,6 @@ describe('Router', function () {
 
       it('handler should pass errors to the next middleware (sync)', function (done) {
         var error = new Error();
-        var endSpy = response.end;
-        var sendSpy = response.send;
-        var transactionSpy = request.db.transaction;
 
         router[method]('/some/path').handler(function () {
           throw error;
@@ -194,19 +179,12 @@ describe('Router', function () {
 
         mockExpressRouter.simulateRequest(request, response, function (err) {
           expect(err).to.equal(error);
-          // Should not have called response.end or response.send or started a transaction.
-          expect(endSpy.calls).to.have.length(0);
-          expect(sendSpy.calls).to.have.length(0);
-          expect(transactionSpy.calls).to.have.length(0);
           done();
         });
       });
 
       it('handler should pass errors to the next middleware (async)', function (done) {
         var error = new Error();
-        var endSpy = response.end;
-        var sendSpy = response.send;
-        var transactionSpy = request.db.transaction;
 
         router[method]('/some/path').handler(function () {
           return Promise.reject(error);
@@ -214,10 +192,6 @@ describe('Router', function () {
 
         mockExpressRouter.simulateRequest(request, response, function (err) {
           expect(err).to.equal(error);
-          // Should not have called response.end or response.send or started a transaction.
-          expect(endSpy.calls).to.have.length(0);
-          expect(sendSpy.calls).to.have.length(0);
-          expect(transactionSpy.calls).to.have.length(0);
           done();
         });
       });
@@ -460,73 +434,6 @@ describe('Router', function () {
         });
       });
 
-      it('should start a transaction if the handler takes three arguments', function (done) {
-        var sendData = {some: 'data'};
-        var transactionSpy = request.db.transaction;
-
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql(JSON.stringify(sendData));
-          expect(transactionSpy.calls).to.have.length(1);
-          done();
-        };
-
-        router[method]('/some/path')
-          .auth(function (req, trx) {
-            expect(req).to.equal(request);
-            expect(trx).to.equal(transaction);
-            return true;
-          })
-          .handler(function (req, res, trx) {
-            expect(req).to.equal(request);
-            expect(res).to.equal(response);
-            expect(trx).to.equal(transaction);
-            return sendData;
-          });
-
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
-      });
-
-      it('transaction.commit should be called and the transaction should end before res.end is called', function (done) {
-        var sendData = {some: 'data'};
-        var transactionSpy = request.db.transaction;
-
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql(JSON.stringify(sendData));
-          expect(transactionSpy.calls).to.have.length(1);
-          expect(transaction.commit.calls).to.have.length(1);
-          expect(transaction.rollback.calls).to.have.length(0);
-          expect(transactionEnded).to.equal(true);
-          done();
-        };
-
-        router[method]('/some/path')
-          .auth(function (req, trx) {
-            expect(req).to.equal(request);
-            expect(trx).to.equal(transaction);
-            expect(transactionEnded).to.equal(false);
-            return true;
-          })
-          .handler(function (req, res, trx) {
-            expect(req).to.equal(request);
-            expect(res).to.equal(response);
-            expect(trx).to.equal(transaction);
-            expect(transactionEnded).to.equal(false);
-            return Promise.delay(100).then(function () {
-              expect(transaction.commit.calls).to.have.length(0);
-              expect(transaction.rollback.calls).to.have.length(0);
-              expect(transactionEnded).to.equal(false);
-              return sendData;
-            });
-          });
-
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
-      });
 
       it('should not need return value if res.send is called in the handler', function (done) {
         var sendData = {some: 'data'};

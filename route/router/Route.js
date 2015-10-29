@@ -42,7 +42,7 @@ function Route(opt) {
    */
   this.expressMiddleware = [];
   /**
-   * @type {function (Request, Response, Transaction)}
+   * @type {function (Request, Response, next)}
    */
   this.handlerFunc = null;
 }
@@ -50,7 +50,7 @@ function Route(opt) {
 /**
  * Installs an express middleware to the route.
  *
- * @param {function(IncomingMessage, Transaction, function)} middleware
+ * @param {function(IncomingMessage, function)} middleware
  * @returns {Route}
  */
 Route.prototype.middleware = function (middleware) {
@@ -66,7 +66,7 @@ Route.prototype.middleware = function (middleware) {
  * Installs an authentication handler for the route.
  *
  * @see Router#get for examples.
- * @param {function(IncomingMessage, Transaction)=} authHandler
+ * @param {function(IncomingMessage)=} authHandler
  * @returns {Route}
  */
 Route.prototype.auth = function (authHandler) {
@@ -79,7 +79,7 @@ Route.prototype.auth = function (authHandler) {
 };
 
 /**
- * Makes the route public by removed all authentication (including the defaultAuth method).
+ * Makes the route public by removing all authentications (including the defaultAuth method).
  *
  * @returns {Route}
  */
@@ -93,7 +93,7 @@ Route.prototype.public = function () {
  * Installs a handler for the route.
  *
  * @see Router#get for examples.
- * @param {function(IncomingMessage, ServerResponse, Transaction)} handler
+ * @param {function(IncomingMessage, ServerResponse, Next)} handler
  * @returns {Route}
  */
 Route.prototype.handler = function (handler) {
@@ -125,7 +125,7 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
   var promise = Promise.resolve();
 
   promise = promise.then(function () {
-    return self.handle_(req, res, null);
+    return self.handle_(req, res, next);
   });
 
   promise.then(function (result) {
@@ -143,7 +143,7 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
 /**
  * @private
  */
-Route.prototype.handle_ = function (req, res, transaction) {
+Route.prototype.handle_ = function (req, res, next) {
   var self = this;
   var context = {};
   var authHandlers = this.authHandlers;
@@ -167,7 +167,7 @@ Route.prototype.handle_ = function (req, res, transaction) {
 
   _.forEach(authHandlers, function (authHandler) {
     promise = promise.then(function () {
-      return authHandler.call(context, req, transaction);
+      return authHandler.call(context, req);
     }).then(function (ret) {
       if (!ret) {
         throw new AccessError();
@@ -176,7 +176,7 @@ Route.prototype.handle_ = function (req, res, transaction) {
   });
 
   return promise.then(function () {
-    var result = self.handlerFunc.call(context, req, res, transaction);
+    var result = self.handlerFunc.call(context, req, res, next);
 
     // If there is no return value (or the return value is undefined) assume that
     // the handler calls res.end(), res.send() or similar method explicitly.
