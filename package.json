@@ -1,0 +1,49 @@
+{
+  "name": "nails-core-features",
+  "description": "Nails.js core features",
+  "version": "0.0.1",
+  "private": false,
+  "author": {
+    "name": "Sami Koskimäki",
+    "email": "sami.koskimaki@vincit.com",
+    "url": "https://github.com/koskimas"
+  },
+  "contributors": [
+    "Mikael Lepistö <mikael.lepisto@vincit.com> (https://github.com/elhigu)"
+  ],
+  "dependencies": {
+    "aws-sdk": "2.1.26",
+    "bluebird": "2.9.25",
+    "body-parser": "1.12.3",
+    "cli-color": "1.0.0",
+    "compression": "1.4.3",
+    "cookie-parser": "1.3.4",
+    "expect.js": "0.3.1",
+    "express-session": "1.11.1",
+    "fs-extra": "0.18.2",
+    "glob": "5.0.5",
+    "lodash": "^3.6.0",
+    "morgan": "1.5.2",
+    "mv": "2.0.3",
+    "node-uuid": "1.4.3",
+    "passport-http": "0.2.2",
+    "passport-local": "1.0.0",
+    "redis": "0.12.1",
+    "underscore.string": "^3.0.0",
+    "passport": "0.2.1"
+  },
+  "devDependencies": {
+    "nails": "file:../nails.js",
+    "chai": "^3.4.0",
+    "coveralls": "^2.11.4",
+    "express": "^4.12.0",
+    "istanbul": "^0.4.0",
+    "mocha": "2.2.4"
+  },
+  "peerDependencies": {
+    "express": "^4.12.0"
+  },
+  "scripts": {
+    "test": "mocha --slow 10 --timeout 30000 --reporter spec --recursive --bail ./*/tests/**.js"
+  }
+}
