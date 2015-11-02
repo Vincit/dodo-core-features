@@ -1,3 +1,3 @@
-# Nails.js core features
+# Dodo.js core features
 
-Default features for [Nails.js](https://github.com/vincit/nails.js).
+Default features for [Dodo.js](https://github.com/vincit/dodo.js).
