@@ -78,7 +78,9 @@ module.exports = function (app, config) {
     , testing = app.config.profile === 'testing';
 
   routeModules = _.reduce(config.routePaths, function (allModules, routePath) {
-    var modules = multiRequire(routePath).filterModule(_.isFunction).require();
+    var modules = multiRequire(routePath).filterModule(function (module) {
+      return _.isFunction(module) ||  _.isFunction(module.default);
+    }).require();
     return allModules.concat(modules);
   }, []);
 
@@ -104,13 +106,14 @@ module.exports = function (app, config) {
   // application is otherwise ready.
   app.on('appReady', function () {
     _.forEach(routeModules, function (module) {
-      var rootPath = module.module.rootPath || '/';
+      var routeModule = _.isFunction(module.module) ? module.module : module.module.default;
+      var rootPath = routeModule.rootPath || '/';
 
       if (!testing) {
         logRegisteringRoutes(path.join(rootPath, module.fileName + module.fileExt));
       }
 
-      module.module(routers[rootPath], app);
+      routeModule(routers[rootPath], app);
     });
   });
 };
