@@ -1,6 +1,6 @@
 {
-  "name": "nails-core-features",
-  "description": "Nails.js core features",
+  "name": "dodo-core-features",
+  "description": "Dodo.js core features",
   "version": "0.0.1",
   "private": false,
   "author": {
@@ -12,6 +12,7 @@
     "Mikael Lepistö <mikael.lepisto@vincit.com> (https://github.com/elhigu)"
   ],
   "dependencies": {
+    "dodo": "0.0.1",
     "aws-sdk": "2.1.26",
     "bluebird": "2.9.25",
     "body-parser": "1.12.3",
@@ -26,14 +27,13 @@
     "morgan": "1.5.2",
     "mv": "2.0.3",
     "node-uuid": "1.4.3",
+    "passport": "0.2.1",
     "passport-http": "0.2.2",
     "passport-local": "1.0.0",
     "redis": "0.12.1",
-    "underscore.string": "^3.0.0",
-    "passport": "0.2.1"
+    "underscore.string": "^3.0.0"
   },
   "devDependencies": {
-    "nails": "file:../nails.js",
     "chai": "^3.4.0",
     "coveralls": "^2.11.4",
     "express": "^4.12.0",

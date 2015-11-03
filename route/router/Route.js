@@ -1,10 +1,10 @@
 "use strict";
 
 var _ = require('lodash')
-  , HTTPError = require('nails/lib/errors/HTTPError')
-  , AccessError = require('nails/lib/errors/AccessError')
-  , Promise = require('bluebird')
-  , NotFoundError = require('nails/lib/errors/NotFoundError');
+  , HTTPError = require('dodo/lib/errors/HTTPError')
+  , AccessError = require('dodo/lib/errors/AccessError')
+  , NotFoundError = require('dodo/lib/errors/NotFoundError')
+  , Promise = require('bluebird');
 
 // Token used to indicate that no result was returned from a handler.
 var NO_RESULT = {};
