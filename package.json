@@ -1,6 +1,6 @@
 {
   "name": "dodo-core-features",
-  "description": "Dodo.js core features",
+  "description": "Dodo.js core features (cors, auth, gzip, cookies, logging, etc.)",
   "version": "0.0.1",
   "private": false,
   "author": {
@@ -10,6 +10,15 @@
   },
   "contributors": [
     "Mikael Lepistö <mikael.lepisto@vincit.com> (https://github.com/elhigu)"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/vincit/dodo-core-features.js.git"
+  },
+  "keywords": [
+    "dodo",
+    "extension",
+    "plugin"
   ],
   "dependencies": {
     "dodo": "0.0.1",
