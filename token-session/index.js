@@ -138,7 +138,7 @@ module.exports = function(app, config) {
       token = req.cookies[tokenHeader];
     }
     if (!storeConnected) {
-      console.warn('yessql:auth: not connected to session store (maybe you need to start redis?)');
+      console.warn('dodo:auth: not connected to session store (maybe you need to start redis?)');
     }
     if (!token || !storeConnected) {
       return createNewSession();
