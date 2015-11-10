@@ -53,6 +53,6 @@
     "express": "^4.12.0"
   },
   "scripts": {
-    "test": "mocha --slow 10 --timeout 30000 --reporter spec --recursive --bail ./*/tests/**.js"
+    "test": "mocha --slow 10 --timeout 5000 --reporter spec --recursive --bail ./*/tests/**.js"
   }
 }

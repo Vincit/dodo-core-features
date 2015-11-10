@@ -74,7 +74,10 @@ Route.prototype.auth = function (authHandler) {
     throw new Error('You must call auth(func) before handler(func)');
   }
 
-  this.authHandlers.push(authHandler || _.constant(true));
+  if (authHandler) {
+    this.authHandlers.push(authHandler);
+  }
+
   return this;
 };
 
@@ -86,6 +89,7 @@ Route.prototype.auth = function (authHandler) {
 Route.prototype.public = function () {
   this.authHandlers = [];
   this.defaultAuthHandler = null;
+  this._public = true;
   return this;
 };
 
@@ -159,9 +163,9 @@ Route.prototype.handle_ = function (req, res, next) {
     authHandlers = [this.defaultAuthHandler];
   }
 
-  // If authentication handlers have been registered, first check
-  // that a user has logged in.
-  if (!_.isEmpty(authHandlers) && !req.user) {
+  // If no authentication handlers have been registered and route is not set public
+  // better to throw... (by default auth is needed)
+  if (_.isEmpty(authHandlers) && !this._public) {
     throw new HTTPError(this.unauthenticatedStatusCode);
   }
 

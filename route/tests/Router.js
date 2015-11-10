@@ -14,10 +14,10 @@ describe('Router', function () {
   beforeEach(function () {
     // Mock express request object.
     request = {
-      user: {},
       // Mock express application.
       app: {
-        config: {}
+        config: {
+        }
       }
     };
   });
@@ -71,7 +71,10 @@ describe('Router', function () {
   });
 
   beforeEach(function () {
-    router = new Router(mockExpressRouter);
+    var publicByDefaultHandler = function publicByDefault(req) {
+      return true;
+    };
+    router = new Router(mockExpressRouter, publicByDefaultHandler);
   });
 
   _.each(['get', 'put', 'post', 'delete', 'patch'], function (method) {
@@ -293,15 +296,13 @@ describe('Router', function () {
         });
       });
 
-      it('auth handler should throw 401 HTTP error if session user is not found', function (done) {
+      it('auth handler should throw 401 HTTP error if access handler not found, but route not set to be public', function (done) {
         var endSpy = response.end;
         var sendSpy = response.send;
         var handlerSpy = spy();
 
-        delete request.user;
-
+        delete router.defaultAuthHandler;
         router[method]('/some/path')
-          .auth()
           .handler(handlerSpy);
 
         mockExpressRouter.simulateRequest(request, response, function (err) {
@@ -316,7 +317,6 @@ describe('Router', function () {
       });
 
       it('auth handler should throw 202 HTTP error instead of 401 if set via unauthenticatedStatusCode', function (done) {
-        delete request.user;
 
         router = new Router(mockExpressRouter, null, 202);
         router[method]('/some/path')
