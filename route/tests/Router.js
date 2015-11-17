@@ -296,7 +296,29 @@ describe('Router', function () {
         });
       });
 
-      it('auth handler should throw 401 HTTP error if access handler not found, but route not set to be public', function (done) {
+      it('returning error from auth handler throws certain error and not the default AccessError', function (done) {
+        var endSpy = response.end;
+        var sendSpy = response.send;
+        var handlerSpy = spy();
+
+        router.defaultAuthHandler = function (req) {
+          return new Error("custom error");
+        };
+        router[method]('/some/path')
+          .handler(handlerSpy);
+
+        mockExpressRouter.simulateRequest(request, response, function (err) {
+          expect(err instanceof Error).to.equal(true);
+          expect(err.message).to.equal("custom error");
+          // Should not have called response.end or response.send or the handler.
+          expect(endSpy.calls).to.have.length(0);
+          expect(sendSpy.calls).to.have.length(0);
+          expect(handlerSpy.calls).to.have.length(0);
+          done();
+        });
+      });
+
+      it('auth handler should throw error if there is no default access handler and route is not set public', function (done) {
         var endSpy = response.end;
         var sendSpy = response.send;
         var handlerSpy = spy();
@@ -306,26 +328,12 @@ describe('Router', function () {
           .handler(handlerSpy);
 
         mockExpressRouter.simulateRequest(request, response, function (err) {
-          expect(err instanceof HTTPError).to.equal(true);
-          expect(err.statusCode).to.equal(401);
+          expect(err instanceof Error).to.equal(true);
+          expect(err.message).to.equal("No defaultAuthHandler set for non-public route.");
           // Should not have called response.end or response.send or the handler.
           expect(endSpy.calls).to.have.length(0);
           expect(sendSpy.calls).to.have.length(0);
           expect(handlerSpy.calls).to.have.length(0);
-          done();
-        });
-      });
-
-      it('auth handler should throw 202 HTTP error instead of 401 if set via unauthenticatedStatusCode', function (done) {
-
-        router = new Router(mockExpressRouter, null, 202);
-        router[method]('/some/path')
-          .auth()
-          .handler(_.noop);
-
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          expect(err instanceof HTTPError).to.equal(true);
-          expect(err.statusCode).to.equal(202);
           done();
         });
       });

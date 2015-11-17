@@ -1,7 +1,6 @@
 "use strict";
 
 var _ = require('lodash')
-  , HTTPError = require('dodo/lib/errors/HTTPError')
   , AccessError = require('dodo/lib/errors/AccessError')
   , NotFoundError = require('dodo/lib/errors/NotFoundError')
   , Promise = require('bluebird');
@@ -150,7 +149,7 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
 Route.prototype.handle_ = function (req, res, next) {
   var self = this;
   var context = {};
-  var authHandlers = this.authHandlers;
+  var authHandlers = this.authHandlers || [];
   var promise = Promise.resolve();
 
   _.forEach(self.expressMiddleware, function (middleware) {
@@ -159,22 +158,26 @@ Route.prototype.handle_ = function (req, res, next) {
     });
   });
 
-  if (_.isEmpty(authHandlers) && this.defaultAuthHandler) {
-    authHandlers = [this.defaultAuthHandler];
-  }
-
-  // If no authentication handlers have been registered and route is not set public
-  // better to throw... (by default auth is needed)
-  if (_.isEmpty(authHandlers) && !this._public) {
-    throw new HTTPError(this.unauthenticatedStatusCode);
+  if (!this._public) {
+    if (this.defaultAuthHandler) {
+      authHandlers.unshift(this.defaultAuthHandler);
+    } else {
+      throw new Error("No defaultAuthHandler set for non-public route.");
+    }
   }
 
   _.forEach(authHandlers, function (authHandler) {
     promise = promise.then(function () {
       return authHandler.call(context, req);
     }).then(function (ret) {
-      if (!ret) {
-        throw new AccessError();
+      if (_.isBoolean(ret)) {
+        if (!ret) {
+          throw new AccessError();
+        }
+      } else if (ret instanceof Error) {
+        throw ret;
+      } else {
+        throw new Error("Invalid return value from auth handler.");
       }
     });
   });
