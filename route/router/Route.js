@@ -132,7 +132,7 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
   });
 
   promise.then(function (result) {
-    if (result === NO_RESULT) {
+    if (_.isUndefined(result) || result === NO_RESULT) {
       return;
     }
     if (!result && !_.isString(result)) {
