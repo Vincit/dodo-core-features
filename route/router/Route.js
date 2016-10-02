@@ -149,7 +149,7 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
 Route.prototype.handle_ = function (req, res, next) {
   var self = this;
   var context = {};
-  var authHandlers = this.authHandlers || [];
+  var authHandlers = (this.authHandlers && this.authHandlers.slice()) || [];
   var promise = Promise.resolve();
 
   _.forEach(self.expressMiddleware, function (middleware) {
