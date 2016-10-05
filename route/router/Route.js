@@ -93,6 +93,18 @@ Route.prototype.public = function () {
 };
 
 /**
+ * This handler sends response by itself and we shouldn't apply default response sending actions for this one.
+ * 
+ * Handler must return promise, which doesn't resolve until res.send is called.
+ *
+ * @returns {Route}
+ */
+Route.prototype.customResponse = function () {
+  this._omitResultHandlers = true;
+  return this;
+};
+
+/**
  * Installs a handler for the route.
  *
  * @see Router#get for examples.
@@ -116,7 +128,8 @@ Route.prototype.execute_ = function () {
   var self = this;
 
   this.expressRouter[this.method](this.path, function (req, res, next) {
-    self.handlerMiddleware_(req, res, next);
+    // return for testing purposes...
+    return self.handlerMiddleware_(req, res, next);
   });
 };
 
@@ -131,14 +144,21 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
     return self.handle_(req, res, next);
   });
 
-  promise.then(function (result) {
-    if (_.isUndefined(result) || result === NO_RESULT) {
+  // return promise for testing purposes
+  return promise.then(function (result) {
+    if (result === NO_RESULT) {
+      if (!res.headersSent) {
+        throw new Error("Handler function did not return promise which won't resolve until response has been sent.");
+      }
       return;
     }
-    if (!result && !_.isString(result)) {
+    if (!_.isObject(result) && !_.isString(result)) {
       throw new NotFoundError();
     } else {
       sendResult(result, req, res);
+    }
+    if (!res.headersSent) {
+      throw new Error("Unexpected error, response was not sent by any handler for some reason. This should not be possible.");
     }
   }).catch(next);
 };
@@ -184,10 +204,7 @@ Route.prototype.handle_ = function (req, res, next) {
 
   return promise.then(function () {
     var result = self.handlerFunc.call(context, req, res, next);
-
-    // If there is no return value (or the return value is undefined) assume that
-    // the handler calls res.end(), res.send() or similar method explicitly.
-    if (_.isUndefined(result)) {
+    if (self._omitResultHandlers) {
       return NO_RESULT;
     } else {
       return result;
@@ -217,7 +234,9 @@ function executeMiddleware(req, res, middleware) {
  * @private
  */
 function sendResult(result, req, res) {
-  if (_.isObject(result)) {
+  if (Buffer.isBuffer(result)) {
+    res.send(result);
+  } else if (_.isObject(result)) {
     res.set('Content-Type', 'application/json');
     // Pretty print json in development and testing modes.
     if (req.app.config.profile === 'development' || req.app.config.profile === 'testing') {
