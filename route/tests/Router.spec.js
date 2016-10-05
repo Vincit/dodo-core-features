@@ -87,6 +87,30 @@ describe('Router', function () {
 
     describe('.' + method + '()', function () {
 
+      it('should fail if .middleware is called after .handler', function () {
+        expect(function () {
+          router[method]('/some/path')
+            .handler(function (req, res) {})
+            .middleware(function (req, res, next) {});
+        }).to.throwError();
+      });
+
+      it('should fail if .auth is called after .handler', function () {
+        expect(function () {
+          router[method]('/some/path')
+            .handler(function (req, res) {})
+            .auth(function (req, res, next) {});
+        }).to.throwError();
+      });
+
+      it('should fail if .handler is called twice', function () {
+        expect(function () {
+          router[method]('/some/path')
+            .handler(function (req, res) {})
+            .handler(function (req, res) {});
+        }).to.throwError();
+      });
+
       it('should call ' + method + '() of the wrapped express router', function () {
         router[method]('/some/path').handler(_.noop);
         expect(mockExpressRouter.method).to.equal(method);
@@ -141,6 +165,44 @@ describe('Router', function () {
             expect(response.statusCode).to.equal(200);
             expect(response.sentData).to.eql('this is a string');
             expect(sendSpy.calls).to.have.length(1);
+          });
+      });
+
+      it('should fail if invalid value is returned from .auth handler', function () {
+        var sendSpy = response.send;
+
+        router[method]('/some/path')
+          .auth(function () {
+            return 50;
+          })
+          .handler(function () {
+          });
+
+        var nextSpy = spy(function (err) {
+          expect(err.message).to.contain('Invalid return value from auth handler');
+        });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
+      });
+
+      it('should send buffer nicely', function () {
+        var sendSpy = response.send;
+
+        router[method]('/some/path')
+          .handler(function () {
+            return new Buffer('nice', 'utf-8');
+          });
+
+        var nextSpy = spy(function (err) {
+          expect(err.message).to.contain('Invalid return value from auth handler');
+        });
+
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.sentData).to.be.a(Buffer);
           });
       });
 
