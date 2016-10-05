@@ -25,9 +25,11 @@ describe('Router', function () {
   beforeEach(function () {
     // Mock express response object.
     response = {
+      headersSent: false,
       statusCode: 200,
       send: spy(function (data) {
         this.sentData = data;
+        this.headersSent = true;
         this.end();
         return this;
       }),
@@ -49,6 +51,10 @@ describe('Router', function () {
     };
   });
 
+  function failIfNext() {
+    throw new Error("Next shouldn't have been called");
+  }
+
   beforeEach(function () {
     // Mock express Router object.
     mockExpressRouter = {
@@ -58,7 +64,7 @@ describe('Router', function () {
       patch: createMockRouterMethod('patch'),
       delete: createMockRouterMethod('delete'),
       simulateRequest: function (req, res, next) {
-        this.handler(req, res, next);
+        return Promise.resolve(this.handler(req, res, next));
       }
     };
     function createMockRouterMethod(method) {
@@ -81,20 +87,38 @@ describe('Router', function () {
 
     describe('.' + method + '()', function () {
 
+      it('should fail if .middleware is called after .handler', function () {
+        expect(function () {
+          router[method]('/some/path')
+            .handler(function (req, res) {})
+            .middleware(function (req, res, next) {});
+        }).to.throwError();
+      });
+
+      it('should fail if .auth is called after .handler', function () {
+        expect(function () {
+          router[method]('/some/path')
+            .handler(function (req, res) {})
+            .auth(function (req, res, next) {});
+        }).to.throwError();
+      });
+
+      it('should fail if .handler is called twice', function () {
+        expect(function () {
+          router[method]('/some/path')
+            .handler(function (req, res) {})
+            .handler(function (req, res) {});
+        }).to.throwError();
+      });
+
       it('should call ' + method + '() of the wrapped express router', function () {
         router[method]('/some/path').handler(_.noop);
         expect(mockExpressRouter.method).to.equal(method);
         expect(mockExpressRouter.path).to.equal('/some/path');
       });
 
-      it('should be able to return json from handler', function (done) {
+      it('should be able to return json from handler', function () {
         var sendData = {some: 'data'};
-
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql(JSON.stringify(sendData));
-          done();
-        };
 
         router[method]('/some/path').handler(function (req, res) {
           expect(req).to.equal(request);
@@ -102,19 +126,15 @@ describe('Router', function () {
           return sendData;
         });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(200);
+            expect(response.sentData).to.eql(JSON.stringify(sendData));
+          });
       });
 
-      it('should be able to return a promise from handler', function (done) {
+      it('should be able to return a promise from handler', function () {
         var sendData = {some: 'data'};
-
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql(JSON.stringify(sendData));
-          done();
-        };
 
         router[method]('/some/path').handler(function (req, res) {
           expect(req).to.equal(request);
@@ -122,20 +142,15 @@ describe('Router', function () {
           return Promise.resolve(sendData);
         });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(200);
+            expect(response.sentData).to.eql(JSON.stringify(sendData));
+          });
       });
 
-      it('should be able to return a string from handler', function (done) {
+      it('should be able to return a string from handler', function () {
         var sendSpy = response.send;
-
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql('this is a string');
-          expect(sendSpy.calls).to.have.length(1);
-          done();
-        };
 
         router[method]('/some/path')
           .auth(function () {
@@ -145,20 +160,54 @@ describe('Router', function () {
             return 'this is a string';
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(200);
+            expect(response.sentData).to.eql('this is a string');
+            expect(sendSpy.calls).to.have.length(1);
+          });
       });
 
-      it('should be able to return a string promise from handler', function (done) {
+      it('should fail if invalid value is returned from .auth handler', function () {
         var sendSpy = response.send;
 
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql('this is a string');
-          expect(sendSpy.calls).to.have.length(1);
-          done();
-        };
+        router[method]('/some/path')
+          .auth(function () {
+            return 50;
+          })
+          .handler(function () {
+          });
+
+        var nextSpy = spy(function (err) {
+          expect(err.message).to.contain('Invalid return value from auth handler');
+        });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
+      });
+
+      it('should send buffer nicely', function () {
+        var sendSpy = response.send;
+
+        router[method]('/some/path')
+          .handler(function () {
+            return new Buffer('nice', 'utf-8');
+          });
+
+        var nextSpy = spy(function (err) {
+          expect(err.message).to.contain('Invalid return value from auth handler');
+        });
+
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.sentData).to.be.a(Buffer);
+          });
+      });
+
+      it('should be able to return a string promise from handler', function () {
+        var sendSpy = response.send;
 
         router[method]('/some/path')
           .auth(function () {
@@ -168,38 +217,49 @@ describe('Router', function () {
             return Promise.resolve('this is a string');
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(200);
+            expect(response.sentData).to.eql('this is a string');
+            expect(sendSpy.calls).to.have.length(1);
+          });
       });
 
-      it('handler should pass errors to the next middleware (sync)', function (done) {
+      it('handler should pass errors to the next middleware (sync)', function () {
         var error = new Error();
 
         router[method]('/some/path').handler(function () {
           throw error;
         });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
+        var nextSpy = spy(function (err) {
           expect(err).to.equal(error);
-          done();
         });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
       });
 
-      it('handler should pass errors to the next middleware (async)', function (done) {
+      it('handler should pass errors to the next middleware (async)', function () {
         var error = new Error();
 
         router[method]('/some/path').handler(function () {
           return Promise.reject(error);
         });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
+        var nextSpy = spy(function (err) {
           expect(err).to.equal(error);
-          done();
         });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
       });
 
-      it('returning null should result in 404 response', function (done) {
+      it('returning null should result in 404 response', function () {
         var endSpy = response.end;
         var sendSpy = response.send;
 
@@ -207,24 +267,22 @@ describe('Router', function () {
           return null;
         });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
+        var nextSpy = spy(function (err) {
           expect(err instanceof HTTPError).to.equal(true);
           expect(err.statusCode).to.equal(404);
           // Should not have called response.end or response.send.
           expect(endSpy.calls).to.have.length(0);
           expect(sendSpy.calls).to.have.length(0);
-          done();
         });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
       });
 
-      it('should execute handler if all auth handlers return true', function (done) {
+      it('should execute handler if all auth handlers return true', function () {
         var sendData = {some: 'data'};
-
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql(JSON.stringify(sendData));
-          done();
-        };
 
         router[method]('/some/path')
           .auth(function (req) {
@@ -245,19 +303,15 @@ describe('Router', function () {
             return sendData;
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(200);
+            expect(response.sentData).to.eql(JSON.stringify(sendData));
+          });
       });
 
-      it('should execute handler if auth handler returns a promise that evaluates to true', function (done) {
+      it('should execute handler if auth handler returns a promise that evaluates to true', function () {
         var sendData = {some: 'data'};
-
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql(JSON.stringify(sendData));
-          done();
-        };
 
         router[method]('/some/path')
           .auth(function (req) {
@@ -270,16 +324,14 @@ describe('Router', function () {
             return sendData;
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(200);
+            expect(response.sentData).to.eql(JSON.stringify(sendData));
+          });
       });
 
-      it('request handler and auth handler should share a request specific `this` context', function (done) {
-        response.onEnd = function () {
-          done();
-        };
-
+      it('request handler and auth handler should share a request specific `this` context', function () {
         router[method]('/some/path')
           .auth(function () {
             expect(this).to.eql({});
@@ -291,12 +343,13 @@ describe('Router', function () {
             return {};
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.headersSent).to.be(true);
+          });
       });
 
-      it('returning error from auth handler throws certain error and not the default AccessError', function (done) {
+      it('returning error from auth handler throws certain error and not the default AccessError', function () {
         var endSpy = response.end;
         var sendSpy = response.send;
         var handlerSpy = spy();
@@ -307,18 +360,23 @@ describe('Router', function () {
         router[method]('/some/path')
           .handler(handlerSpy);
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
+        var nextSpy = spy(function (err) {
           expect(err instanceof Error).to.equal(true);
           expect(err.message).to.equal("custom error");
           // Should not have called response.end or response.send or the handler.
           expect(endSpy.calls).to.have.length(0);
           expect(sendSpy.calls).to.have.length(0);
           expect(handlerSpy.calls).to.have.length(0);
-          done();
+          expect(response.headersSent).to.be(false);
         });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
       });
 
-      it('auth handler should throw error if there is no default access handler and route is not set public', function (done) {
+      it('auth handler should throw error if there is no default access handler and route is not set public', function () {
         var endSpy = response.end;
         var sendSpy = response.send;
         var handlerSpy = spy();
@@ -327,18 +385,22 @@ describe('Router', function () {
         router[method]('/some/path')
           .handler(handlerSpy);
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
+        var nextSpy = spy(function (err) {
           expect(err instanceof Error).to.equal(true);
           expect(err.message).to.equal("No defaultAuthHandler set for non-public route.");
           // Should not have called response.end or response.send or the handler.
           expect(endSpy.calls).to.have.length(0);
           expect(sendSpy.calls).to.have.length(0);
           expect(handlerSpy.calls).to.have.length(0);
-          done();
         });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
       });
 
-      it('should throw 403 HTTP error if auth handler returns false', function (done) {
+      it('should throw 403 HTTP error if auth handler returns false', function () {
         var endSpy = response.end;
         var sendSpy = response.send;
         var handlerSpy = spy();
@@ -349,18 +411,22 @@ describe('Router', function () {
           })
           .handler(handlerSpy);
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
+        var nextSpy = spy(function (err) {
           expect(err instanceof AccessError).to.equal(true);
           expect(err.statusCode).to.equal(403);
           // Should not have called response.end or response.send or the handler.
           expect(endSpy.calls).to.have.length(0);
           expect(sendSpy.calls).to.have.length(0);
           expect(handlerSpy.calls).to.have.length(0);
-          done();
         });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
       });
 
-      it('should throw 403 HTTP error if any of the auth handlers return a promise that evaluates to false', function (done) {
+      it('should throw 403 HTTP error if any of the auth handlers return a promise that evaluates to false', function () {
         var endSpy = response.end;
         var sendSpy = response.send;
         var handlerSpy = spy();
@@ -377,18 +443,22 @@ describe('Router', function () {
           })
           .handler(handlerSpy);
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
+        var nextSpy = spy(function (err) {
           expect(err instanceof AccessError).to.equal(true);
           expect(err.statusCode).to.equal(403);
           // Should not have called response.end or response.send or the handler.
           expect(endSpy.calls).to.have.length(0);
           expect(sendSpy.calls).to.have.length(0);
           expect(handlerSpy.calls).to.have.length(0);
-          done();
         });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
       });
 
-      it('should use the defaultAuthHandler if defined', function (done) {
+      it('should use the defaultAuthHandler if defined', function () {
         var endSpy = response.end;
         var sendSpy = response.send;
         var handlerSpy = spy();
@@ -401,7 +471,7 @@ describe('Router', function () {
         router = new Router(mockExpressRouter, defaultAuthHandlerSpy);
         router[method]('/some/path').handler(handlerSpy);
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
+        var nextSpy = spy(function (err) {
           expect(err instanceof AccessError).to.equal(true);
           expect(err.statusCode).to.equal(403);
           // Should not have called response.end or response.send or the handler.
@@ -409,23 +479,20 @@ describe('Router', function () {
           expect(sendSpy.calls).to.have.length(0);
           expect(handlerSpy.calls).to.have.length(0);
           expect(defaultAuthHandlerSpy.calls).to.have.length(1);
-          done();
         });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
       });
 
-      it('should remove all authentication if `.public` is called', function (done) {
+      it('should remove all authentication if `.public` is called', function () {
         var sendData = {some: 'data'};
 
         var defaultAuthHandlerSpy = spy(function () {
           return false;
         });
-
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql(JSON.stringify(sendData));
-          expect(defaultAuthHandlerSpy.calls).to.have.length(0);
-          done();
-        };
 
         router = new Router(mockExpressRouter, defaultAuthHandlerSpy);
         router[method]('/some/path')
@@ -437,80 +504,92 @@ describe('Router', function () {
             return sendData;
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(200);
+            expect(response.sentData).to.eql(JSON.stringify(sendData));
+            expect(defaultAuthHandlerSpy.calls).to.have.length(0);
+          });
       });
 
 
-      it('should not need return value if res.send is called in the handler', function (done) {
+      it('should not need return value if res.send is called in the handler (async)', function () {
         var sendData = {some: 'data'};
         var endSpy = response.end;
         var sendSpy = response.send;
 
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(304);
-          expect(this.sentData).to.eql(sendData);
-          expect(endSpy.calls).to.have.length(1);
-          expect(sendSpy.calls).to.have.length(1);
-          done();
-        };
+        router[method]('/some/path')
+          .auth(function () {
+            return true;
+          })
+          .customResponse()
+          .handler(function (req, res) {
+            return Promise.resolve().then(function () {
+              res.status(304).send(sendData);
+            });
+          });
+
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(304);
+            expect(response.sentData).to.eql(sendData);
+            expect(endSpy.calls).to.have.length(1);
+            expect(sendSpy.calls).to.have.length(1);
+          });
+      });
+
+      it('should not need return value if res.send is called in the handler (sync)', function () {
+        var sendData = {some: 'data'};
+        var endSpy = response.end;
+        var sendSpy = response.send;
 
         router[method]('/some/path')
           .auth(function () {
             return true;
           })
+          .customResponse()
           .handler(function (req, res) {
             res.status(304).send(sendData);
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(304);
+            expect(response.sentData).to.eql(sendData);
+            expect(endSpy.calls).to.have.length(1);
+            expect(sendSpy.calls).to.have.length(1);
+          });
       });
 
-      it('should not need return value if res.end is called in the handler', function (done) {
+      it('should fail if res.send is not called in the handler and .customResponse() is declared', function () {
         var endSpy = response.end;
         var sendSpy = response.send;
 
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(304);
-          expect(this.sentData).to.eql(undefined);
-          expect(endSpy.calls).to.have.length(1);
-          expect(sendSpy.calls).to.have.length(0);
-          done();
-        };
-
         router[method]('/some/path')
+          .customResponse()
           .auth(function () {
             return true;
           })
           .handler(function (req, res) {
-            setTimeout(function () {
-              res.status(304).end();
-            }, 10);
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
+        var nextSpy = spy(function (err) {
+          expect(err.message).to.contain('Handler function did not return promise');
         });
+
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
       });
 
-      it('should be able to register express middleware', function (done) {
+      it('should be able to register express middleware', function () {
         var sendSpy = response.send;
         var middlewareSpy = spy(function (req, res, next) {
           expect(req).to.equal(request);
           expect(res).to.equal(response);
           setTimeout(next, 20);
         });
-
-        response.onEnd = function () {
-          expect(this.statusCode).to.equal(200);
-          expect(this.sentData).to.eql(JSON.stringify({some: 'data'}));
-          expect(sendSpy.calls).to.have.length(1);
-          expect(middlewareSpy.calls).to.have.length(2);
-          done();
-        };
 
         router[method]('/some/path')
           .auth(function () {
@@ -522,12 +601,16 @@ describe('Router', function () {
             return {some: 'data'};
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
-          done(err);
-        });
+        return mockExpressRouter.simulateRequest(request, response, failIfNext)
+          .then(function () {
+            expect(response.statusCode).to.equal(200);
+            expect(response.sentData).to.eql(JSON.stringify({some: 'data'}));
+            expect(sendSpy.calls).to.have.length(1);
+            expect(middlewareSpy.calls).to.have.length(2);
+          });
       });
 
-      it('failing express middleware should call next() with an error', function (done) {
+      it('failing express middleware should call next() with an error', function () {
         var error = new Error();
 
         var middlewareSpy = spy(function (req, res, next) {
@@ -550,13 +633,16 @@ describe('Router', function () {
             done(new Error('should not get here'));
           });
 
-        mockExpressRouter.simulateRequest(request, response, function (err) {
+        var nextSpy = spy(function (err) {
           expect(err).to.equal(error);
           expect(middlewareSpy.calls).to.have.length(1);
-          done();
         });
-      });
 
+        return mockExpressRouter.simulateRequest(request, response, nextSpy)
+          .then(function () {
+            expect(nextSpy.calls).to.have.length(1);
+          });
+      });
     });
   });
 

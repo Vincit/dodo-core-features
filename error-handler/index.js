@@ -93,7 +93,7 @@ function createHandlers(config) {
       }
     }
     if (!handler) {
-      throw new Error('Invalid handler', handlerName);
+      throw new Error('Invalid handler:' + handlerName);
     }
     return handler;
   });
