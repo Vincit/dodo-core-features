@@ -42,7 +42,7 @@
     "underscore.string": "^3.0.0"
   },
   "devDependencies": {
-    "dodo": "^0.0.9",
+    "dodo": "^0.0.11",
     "chai": "^3.4.0",
     "coveralls": "^2.11.4",
     "express": "^4.12.0",
