@@ -1,8 +1,8 @@
 "use strict";
 
 var _ = require('lodash')
-  , AccessError = require('dodo/lib/errors/AccessError')
-  , NotFoundError = require('dodo/lib/errors/NotFoundError')
+  , AccessError = require('dodo/errors').AccessError
+  , NotFoundError = require('dodo/errors').NotFoundError
   , Promise = require('bluebird');
 
 // Token used to indicate that no result was returned from a handler.

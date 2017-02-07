@@ -2,7 +2,7 @@
 
 var _ = require('lodash')
   , _str = require('underscore.string')
-  , ConflictError = require('dodo/lib/errors/ConflictError');
+  , ConflictError = require('dodo/errors').ConflictError;
 
 /**
  * Handles errors thrown by the node-sqlite3 driver.

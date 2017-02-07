@@ -1,7 +1,7 @@
 {
   "name": "dodo-core-features",
   "description": "Dodo.js core features (cors, auth, gzip, cookies, logging, etc.)",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": false,
   "author": {
     "name": "Sami Koskimäki",
@@ -42,7 +42,7 @@
     "underscore.string": "^3.0.0"
   },
   "devDependencies": {
-    "dodo": "^0.0.2",
+    "dodo": "^0.0.8",
     "chai": "^3.4.0",
     "coveralls": "^2.11.4",
     "express": "^4.12.0",

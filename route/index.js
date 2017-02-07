@@ -4,7 +4,7 @@ var _ = require('lodash')
   , path = require('path')
   , color = require('cli-color')
   , express = require('express')
-  , multiRequire = require('dodo/lib/utils/multi-require')
+  , multiRequire = require('dodo/utils').multiRequire
   , Router = require('./router/Router');
 
 /**

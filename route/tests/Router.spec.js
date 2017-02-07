@@ -2,8 +2,8 @@ var _ = require('lodash')
   , expect = require('expect.js')
   , Promise = require('bluebird')
   , Router = require('../router/Router')
-  , HTTPError = require('dodo/lib/errors/HTTPError')
-  , AccessError = require('dodo/lib/errors/AccessError');
+  , HTTPError = require('dodo/errors').HTTPError
+  , AccessError = require('dodo/errors').AccessError;
 
 describe('Router', function () {
   var request;

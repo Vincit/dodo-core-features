@@ -3,7 +3,7 @@
 var _ = require('lodash')
   , fs = require('fs')
   , path = require('path')
-  , HTTPError = require('dodo/lib/errors/HTTPError');
+  , HTTPError = require('dodo/errors').HTTPError;
 
 /**
  * Registers an *Express* middleware that catches errors and creates error responses.

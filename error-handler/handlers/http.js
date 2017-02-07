@@ -1,6 +1,6 @@
 "use strict";
 
-var HTTPError = require('dodo/lib/errors/HTTPError');
+var HTTPError = require('dodo/errors').HTTPError;
 
 /**
  * Handles all `HTTPErrors` and errors that have `statusCode` property.

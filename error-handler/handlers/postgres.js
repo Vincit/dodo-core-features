@@ -1,7 +1,7 @@
 "use strict";
 
 var _ = require('lodash')
-  , ConflictError = require('dodo/lib/errors/ConflictError');
+  , ConflictError = require('dodo/errors').ConflictError;
 
 /**
  * Handles errors thrown by the node-pg driver.
