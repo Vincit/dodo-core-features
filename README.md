@@ -3,4 +3,6 @@
 
 # Dodo.js core features
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/Vincit/dodo-core-features.svg)](https://greenkeeper.io/)
+
 Default features for [Dodo.js](https://github.com/vincit/dodo.js).
