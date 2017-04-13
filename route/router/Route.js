@@ -94,7 +94,7 @@ Route.prototype.public = function () {
 
 /**
  * This handler sends response by itself and we shouldn't apply default response sending actions for this one.
- * 
+ *
  * Handler must return promise, which doesn't resolve until res.send is called.
  *
  * @returns {Route}
@@ -148,7 +148,8 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
   return promise.then(function (result) {
     if (result === NO_RESULT) {
       if (!res.headersSent) {
-        throw new Error("Handler function did not return promise which won't resolve until response has been sent.");
+        throw new Error("Handler function did not return promise which won't resolve until response has been sent. " +
+          "Requested path: " + req.path);
       }
       return;
     }
@@ -158,7 +159,8 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
       sendResult(result, req, res);
     }
     if (!res.headersSent) {
-      throw new Error("Unexpected error, response was not sent by any handler for some reason. This should not be possible.");
+      throw new Error("Unexpected error, response was not sent by any handler for some reason. " +
+          "Requested path: " + req.path);
     }
   }).catch(next);
 };
@@ -182,7 +184,7 @@ Route.prototype.handle_ = function (req, res, next) {
     if (this.defaultAuthHandler) {
       authHandlers.unshift(this.defaultAuthHandler);
     } else {
-      throw new Error("No defaultAuthHandler set for non-public route.");
+      throw new Error("No defaultAuthHandler set for non-public route. Requested path: " + req.path);
     }
   }
 
@@ -197,7 +199,7 @@ Route.prototype.handle_ = function (req, res, next) {
       } else if (ret instanceof Error) {
         throw ret;
       } else {
-        throw new Error("Invalid return value from auth handler.");
+        throw new Error("Invalid return value from auth handler. Requested path: " + req.path);
       }
     });
   });

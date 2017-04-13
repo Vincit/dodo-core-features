@@ -387,7 +387,7 @@ describe('Router', function () {
 
         var nextSpy = spy(function (err) {
           expect(err instanceof Error).to.equal(true);
-          expect(err.message).to.equal("No defaultAuthHandler set for non-public route.");
+          expect(err.message).to.contain("No defaultAuthHandler set for non-public route.");
           // Should not have called response.end or response.send or the handler.
           expect(endSpy.calls).to.have.length(0);
           expect(sendSpy.calls).to.have.length(0);
