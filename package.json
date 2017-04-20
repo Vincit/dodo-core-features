@@ -34,7 +34,7 @@
     "lodash": "^4.17.4",
     "morgan": "1.8.1",
     "mv": "2.1.1",
-    "node-uuid": "1.4.7",
+    "uuid": "3.0.1",
     "passport": "0.3.2",
     "passport-http": "0.3.0",
     "passport-local": "1.0.0",
@@ -42,19 +42,20 @@
     "underscore.string": "^3.0.0"
   },
   "devDependencies": {
-    "dodo": "^0.0.12",
     "chai": "^3.4.0",
     "coveralls": "^2.11.4",
+    "dodo": "^0.0.12",
     "express": "^4.12.0",
     "istanbul": "^0.4.0",
-    "mocha": "3.2.0"
+    "mocha": "3.2.0",
+    "sinon": "^2.1.0"
   },
   "peerDependencies": {
     "express": "^4.12.0"
   },
   "scripts": {
-    "test": "node_modules/.bin/istanbul --config=.istanbul.yml cover _mocha -- --slow 10 --timeout 5000 --reporter spec --recursive ./**/tests/*.js",
-    "test-no-coverage": "mocha --slow 10 --timeout 5000 --reporter spec --recursive --bail ./**/tests/*.js",
+    "test": "node_modules/.bin/istanbul --config=.istanbul.yml cover _mocha -- --slow 10 --timeout 5000 --reporter spec --recursive ./**/*.spec.js",
+    "test-no-coverage": "mocha --slow 10 --timeout 5000 --reporter spec --recursive --bail ./**/*.spec.js",
     "coveralls": "cat ./test-coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js"
   }
 }

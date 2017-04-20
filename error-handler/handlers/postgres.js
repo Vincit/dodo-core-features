@@ -25,7 +25,7 @@ module.exports = function(error) {
 function isPostgresError(error) {
   if (!error) { return false; }
   // Just check the existence of a bunch of attributes. There doesn't seem to be an easier way.
-  return _.all(['severity', 'code', 'detail', 'internalQuery', 'routine'], function(attr) {
+  return _.every(['severity', 'code', 'detail', 'internalQuery', 'routine'], function(attr) {
     return _.has(error, attr);
   });
 }
