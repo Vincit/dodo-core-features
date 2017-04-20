@@ -54,8 +54,8 @@
     "express": "^4.12.0"
   },
   "scripts": {
-    "test": "node_modules/.bin/istanbul --config=.istanbul.yml cover _mocha -- --slow 10 --timeout 5000 --reporter spec --recursive ./**/*.spec.js",
-    "test-no-coverage": "mocha --slow 10 --timeout 5000 --reporter spec --recursive --bail ./**/*.spec.js",
+    "test": "node_modules/.bin/istanbul --config=.istanbul.yml cover _mocha -- --slow 10 --timeout 5000 --reporter spec --recursive './**/*.spec.js'",
+    "test-no-coverage": "mocha --slow 10 --timeout 5000 --reporter spec --recursive --bail './**/*.spec.js'",
     "coveralls": "cat ./test-coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js"
   }
 }
