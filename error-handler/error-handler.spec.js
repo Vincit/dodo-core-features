@@ -2,7 +2,7 @@ var _ = require('lodash')
   , expect = require('expect.js')
   , Promise = require('bluebird')
   , sinon = require('sinon')
-  , middleware = require('.')
+  , middleware = require('./index')
   , logger = require('dodo/logger')
   , HttpError = require('dodo/errors').HTTPError
   ;
