@@ -574,7 +574,7 @@ describe('Router', function () {
           });
 
         var nextSpy = spy(function (err) {
-          expect(err.message).to.contain('Handler function did not return promise');
+          expect(err.message).to.contain('When using .customResponse() handler, the promise returned must not resolve before');
         });
 
         return mockExpressRouter.simulateRequest(request, response, nextSpy)

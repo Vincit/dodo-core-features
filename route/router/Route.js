@@ -148,7 +148,7 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
   return promise.then(function (result) {
     if (result === NO_RESULT) {
       if (!res.headersSent) {
-        throw new Error("Handler function did not return promise which won't resolve until response has been sent. " +
+        throw new Error("When using .customResponse() handler, the promise returned must not resolve before the response has been sent. " +
           "Requested path: " + req.path);
       }
       return;
