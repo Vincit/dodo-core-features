@@ -43,7 +43,7 @@ var config = {
   ]
 };
 
-describe.only('error-handlers express middleware', function () {
+describe('error-handlers express middleware', function () {
 
   var mockLogger = new logger.MockHandler();
 
@@ -121,7 +121,7 @@ describe.only('error-handlers express middleware', function () {
     expect(mockRes.lastErr.statusCode).to.be(409);
   });
 
-  it('should parse some pestgres error', function () {
+  it('should match parseForeignKeyViolationError postgres error', function () {
     var theError = new Error('SQLITE_CONSTRAINT: UNIQUE diipadaa dappa huh.hah.hei');
     theError.severity = 'pretty bad';
     theError.code = '23503';
@@ -130,6 +130,18 @@ describe.only('error-handlers express middleware', function () {
     theError.routine = 1;
     mockApp.expressHandler(theError, mockReq, mockRes, null);
     expect(mockRes.lastErr.data.nasty).to.be.ok();
+    expect(mockRes.lastErr.statusCode).to.be(409);
+  });
+
+  it('should match parseUniqueViolationError postgres error', function () {
+    var theError = new Error('SQLITE_CONSTRAINT: UNIQUE diipadaa dappa huh.hah.hei');
+    theError.severity = 'pretty bad';
+    theError.code = '23505';
+    theError.detail = '(nasty)=(somthing) "poopy" did hit the fan';
+    theError.internalQuery = 'select * from fan where not poo';
+    theError.routine = 1;
+    mockApp.expressHandler(theError, mockReq, mockRes, null);
+    expect(mockRes.lastErr.data.nasty).to.contain('already exists');
     expect(mockRes.lastErr.statusCode).to.be(409);
   });
 });
