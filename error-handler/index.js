@@ -3,7 +3,8 @@
 var _ = require('lodash')
   , fs = require('fs')
   , path = require('path')
-  , HTTPError = require('dodo/errors').HTTPError;
+  , HTTPError = require('dodo/errors').HTTPError
+  , log = require('dodo/logger').getLogger('dodo-core-features.error-handler');
 
 /**
  * Registers an *Express* middleware that catches errors and creates error responses.
@@ -67,7 +68,7 @@ module.exports = function(app, config) {
       // No handler found. Send generic 500.
       var debugging = req.app.config.profile !== 'production';
       errorResponse = new HTTPError(500, debugging ? err.stack : null).toJSON();
-      console.error(err.stack);
+      log.trace({ error: err }, "Unknown error");
     }
 
     res.status(errorResponse.statusCode || 500).json(errorResponse);
