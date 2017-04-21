@@ -143,6 +143,8 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
 
   promise = promise.then(function () {
     return self.handle_(req, res, next);
+  }).then(res => {
+    return res;
   });
 
   // return promise for testing purposes
@@ -215,7 +217,9 @@ Route.prototype.handle_ = function (req, res, next) {
   return promise.then(function () {
     var result = self.handlerFunc.call(context, req, res, next);
     if (self._omitResultHandlers) {
-      return NO_RESULT;
+      return Promise.resolve(result).then(function () {
+        return NO_RESULT;
+      });
     } else {
       return result;
     }
@@ -246,15 +250,20 @@ function executeMiddleware(req, res, middleware) {
 function sendResult(result, req, res) {
   if (Buffer.isBuffer(result)) {
     res.send(result);
+    log.trace('Buffer result was sent', res.headersSent);
   } else if (_.isObject(result)) {
     res.set('Content-Type', 'application/json');
     // Pretty print json in development and testing modes.
     if (req.app.config.profile === 'development' || req.app.config.profile === 'testing') {
       res.send(JSON.stringify(result, null, 2));
+      log.trace('Pretty json result was sent', res.headersSent);
     } else {
       res.send(JSON.stringify(result));
+      log.trace('Production json result was sent', res.headersSent);
     }
   } else {
     res.send(result);
+    log.trace('Unmodified result was sent', res.headersSent);
   }
+  log.trace('End of sendResult', res.headersSent);
 }
