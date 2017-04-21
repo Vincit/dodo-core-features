@@ -143,8 +143,6 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
 
   promise = promise.then(function () {
     return self.handle_(req, res, next);
-  }).then(res => {
-    return res;
   });
 
   // return promise for testing purposes

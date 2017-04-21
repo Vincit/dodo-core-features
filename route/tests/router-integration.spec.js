@@ -43,9 +43,9 @@ function testRouter(router, app) {
 };
 
 describe('Router integration testing with express running', function () {
-  let server;
-  let port;
-  let requ;
+  var server;
+  var port;
+  var requ;
 
   before('setup router', function () {
     expressRouter = express.Router();
