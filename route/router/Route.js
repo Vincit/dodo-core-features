@@ -3,7 +3,8 @@
 var _ = require('lodash')
   , AccessError = require('dodo/errors').AccessError
   , NotFoundError = require('dodo/errors').NotFoundError
-  , Promise = require('bluebird');
+  , Promise = require('bluebird')
+  , log = require('dodo/logger').getLogger('dodo-core-features.router');
 
 // Token used to indicate that no result was returned from a handler.
 var NO_RESULT = {};
@@ -159,8 +160,15 @@ Route.prototype.handlerMiddleware_ = function (req, res, next) {
       sendResult(result, req, res);
     }
     if (!res.headersSent) {
-      throw new Error("Unexpected error, response was not sent by any handler for some reason. " +
-          "Requested path: " + req.path);
+      log.error(
+        { reqPath: req.path },
+        "For some reason sendResult didn't throw an error, but call to res.send didn't set the res.headersSent correctly either. " +
+        "This seems to happen some times when connection is closed by client during some certain moment."
+      );
+      throw new Error(
+        "Unexpected error, for some reason call to res.send didn't set the res.headersSent attribute. " +
+        "Maybe connection was closed by request. Requested path: " + req.path
+      );
     }
   }).catch(next);
 };
@@ -207,7 +215,9 @@ Route.prototype.handle_ = function (req, res, next) {
   return promise.then(function () {
     var result = self.handlerFunc.call(context, req, res, next);
     if (self._omitResultHandlers) {
-      return NO_RESULT;
+      return Promise.resolve(result).then(function () {
+        return NO_RESULT;
+      });
     } else {
       return result;
     }
@@ -238,15 +248,20 @@ function executeMiddleware(req, res, middleware) {
 function sendResult(result, req, res) {
   if (Buffer.isBuffer(result)) {
     res.send(result);
+    log.trace('Buffer result was sent', res.headersSent);
   } else if (_.isObject(result)) {
     res.set('Content-Type', 'application/json');
     // Pretty print json in development and testing modes.
     if (req.app.config.profile === 'development' || req.app.config.profile === 'testing') {
       res.send(JSON.stringify(result, null, 2));
+      log.trace('Pretty json result was sent', res.headersSent);
     } else {
       res.send(JSON.stringify(result));
+      log.trace('Production json result was sent', res.headersSent);
     }
   } else {
     res.send(result);
+    log.trace('Unmodified result was sent', res.headersSent);
   }
+  log.trace('End of sendResult', res.headersSent);
 }
