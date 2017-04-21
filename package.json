@@ -21,15 +21,15 @@
     "plugin"
   ],
   "dependencies": {
-    "aws-sdk": "2.12.0",
-    "bluebird": "3.4.7",
-    "body-parser": "1.16.1",
-    "cli-color": "1.1.0",
+    "aws-sdk": "2.43.0",
+    "bluebird": "3.5.0",
+    "body-parser": "1.17.1",
+    "cli-color": "1.2.0",
     "compression": "1.6.2",
     "cookie-parser": "1.4.3",
     "expect.js": "0.3.1",
-    "express-session": "1.15.1",
-    "fs-extra": "2.0.0",
+    "express-session": "1.15.2",
+    "fs-extra": "2.1.2",
     "glob": "7.1.1",
     "lodash": "^4.17.4",
     "morgan": "1.8.1",
@@ -38,7 +38,7 @@
     "passport": "0.3.2",
     "passport-http": "0.3.0",
     "passport-local": "1.0.0",
-    "redis": "2.6.5",
+    "redis": "2.7.1",
     "underscore.string": "^3.0.0"
   },
   "devDependencies": {
