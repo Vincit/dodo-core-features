@@ -21,7 +21,7 @@
     "plugin"
   ],
   "dependencies": {
-    "aws-sdk": "2.48.0",
+    "aws-sdk": "2.49.0",
     "bluebird": "3.5.0",
     "body-parser": "1.17.1",
     "cli-color": "1.2.0",
