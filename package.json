@@ -41,7 +41,7 @@
   "devDependencies": {
     "chai": "^4.0.0",
     "coveralls": "^2.11.4",
-    "dodo": "^0.0.14",
+    "dodo": "^0.0.15",
     "express": "^4.12.0",
     "istanbul": "^0.4.0",
     "mocha": "3.4.2",
