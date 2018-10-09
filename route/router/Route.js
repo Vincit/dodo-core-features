@@ -3,6 +3,7 @@
 var _ = require('lodash')
   , AccessError = require('dodo/errors').AccessError
   , NotFoundError = require('dodo/errors').NotFoundError
+  , HTTPError = require('dodo/errors').HTTPError
   , Promise = require('bluebird')
   , log = require('dodo/logger').getLogger('dodo-core-features.router');
 
@@ -42,9 +43,13 @@ function Route(opt) {
    */
   this.expressMiddleware = [];
   /**
-   * @type {function (Request, Response, next)}
+   * @type {Object}
    */
-  this.handlerFunc = null;
+  this.handlerFuncs = {};
+  /**
+   * @type {Object}
+   */
+  this.apiVersioningConfig = opt.apiVersioningConfig;
 }
 
 /**
@@ -54,7 +59,7 @@ function Route(opt) {
  * @returns {Route}
  */
 Route.prototype.middleware = function (middleware) {
-  if (this.handlerFunc) {
+  if (_.size(this.handlerFuncs) > 0) {
     throw new Error('You must call middleware(func) before handler(func)');
   }
 
@@ -70,7 +75,7 @@ Route.prototype.middleware = function (middleware) {
  * @returns {Route}
  */
 Route.prototype.auth = function (authHandler) {
-  if (this.handlerFunc) {
+  if (_.size(this.handlerFuncs) > 0) {
     throw new Error('You must call auth(func) before handler(func)');
   }
 
@@ -108,18 +113,175 @@ Route.prototype.customResponse = function () {
 /**
  * Installs a handler for the route.
  *
- * @see Router#get for examples.
+ * @private
  * @param {function(IncomingMessage, ServerResponse, Next)} handler
+ * @param {number} apiVersion
+ * @param {boolean} isDefault
  * @returns {Route}
  */
-Route.prototype.handler = function (handler) {
-  if (this.handlerFunc) {
-    throw new Error('handler(func) can be called just once per Route instance');
+Route.prototype.handler_ = function (handler, apiVersion, isDefault) {
+  var self = this;
+
+  if (self.isApiVersioningEnabled_() === false && !_.isNil(apiVersion)) {
+    throw new Error('cant define versioned handler because api versioning is not enabled');
   }
 
-  this.handlerFunc = handler;
+  // Set the default handler is needed (if called without apiVersion, or with isDefault=true)
+  if (_.isNil(apiVersion) || isDefault === true) {
+    var existingHandler = self.handlerFuncs['default'];
+
+    if (existingHandler) {
+      throw new Error('default handler func can be set only once per Route instance');
+    } else {
+      self.handlerFuncs['default'] = handler;
+    }
+  }
+  
+  // Set the api version handler if needed (if apiVersion is defined)
+  if (!_.isNil(apiVersion)) {
+    self.validateApiVersion_(apiVersion);
+
+    var existingHandler = self.handlerFuncs[apiVersion];
+
+    if (existingHandler) {
+      throw new Error('apiVersion handler already exists, can be set only once.');
+    } else {
+      self.handlerFuncs[apiVersion] = handler;
+    }
+  }
+
   this.execute_();
   return this;
+};
+
+/**
+ * Installs a handler for the route.
+ *
+ * @see Router#get for examples.
+ * @param {function(IncomingMessage, ServerResponse, Next)} handler
+ * @param {number} [apiVersion]
+ * @returns {Route}
+ */
+Route.prototype.handler = function (arg1, arg2) {
+  var self = this;
+  var numberOfArguments = arguments.length;
+  if (numberOfArguments <= 0 || numberOfArguments > 2) {
+    throw new Error('Wrong number of arguments passed to .handler()')
+  }
+  if (numberOfArguments == 1) {
+    return self.handler_(arg1, undefined, false);
+  } else {
+    return self.handler_(arg2, arg1, false);
+  }
+};
+
+/**
+ * Installs a default handler for the route.
+ *
+ * @see Router#get for examples.
+ * @param {function(IncomingMessage, ServerResponse, Next)} handler
+ * @param {number} [apiVersion]
+ * @returns {Route}
+ */
+Route.prototype.defaultHandler = function (arg1, arg2) {
+  var self = this;
+  var numberOfArguments = arguments.length;
+  if (numberOfArguments <= 0 || numberOfArguments > 2) {
+    throw new Error('Wrong number of arguments passed to .defaultHandler()')
+  }
+  if (numberOfArguments == 1) {
+    return self.handler_(arg1, undefined, true);
+  } else {
+    return self.handler_(arg2, arg1, true);
+  }
+};
+
+/**
+ * Finds handler for specified api version (optional)
+ * If apiVersion is not provided, returns the default handler
+ * 
+ * @private
+ * @param {number} [apiVersion]
+ * @returns {function (Request, Response, next)}
+ */
+Route.prototype.findHandler_ = function (apiVersion, fallbackToDefault, fallbackToPrevious) {
+  var self = this;
+  var handler;
+
+  if (_.isNil(apiVersion)) {
+    if (fallbackToDefault) {
+      handler = self.handlerFuncs['default'];
+    }
+  } else {
+    // Try to find handler for api version
+    var handler = self.handlerFuncs[apiVersion];
+
+    // If handler is not found, and fallbackToPrevious config is true
+    if (!handler && fallbackToPrevious) {
+      // Find previous api version from handlerFuncs keys
+      var previousApiVersion = _.chain(self.handlerFuncs)
+        .omit('default') // Omit default handler
+        .keys() // Get apiVersions
+        .filter(function(key) { // We don't want to include newer api versions than initially requested
+          return key <= apiVersion;
+        })
+        .max() // Get the previous existing api version from the subset
+        .value();
+      if (previousApiVersion !== undefined) {
+        handler = self.handlerFuncs[previousApiVersion]; 
+      }
+    }
+  }
+  return handler;
+};
+
+/**
+ * Tries to find apiVersion from request. Validates it if needed.
+ * 
+ * @private
+ * @param {Object} req
+ * @returns {number}
+ */
+Route.prototype.findApiVersionFromRequest_ = function (req) {
+  var self = this;
+  var fallbackToDefault = _.get(self, 'apiVersioningConfig.fallbackToDefaultHandler', true);
+  var apiVersion = self.apiVersioningConfig.findApiVersionHandler(req);
+
+  // If apiVersion is not defined in request, and fallback is not allowed, thrown an Error.
+  if (apiVersion === undefined && fallbackToDefault === false) {
+    throw new NotFoundError('Api version must be defined');
+  // If apiVersion is defined, validate it
+  } else if (apiVersion !== undefined) {
+    self.validateApiVersion_(apiVersion);
+  } else {
+    // Api version is not defined in request, but fallback to default handler is allowed. Pass.
+  }
+
+  return apiVersion;
+};
+
+/**
+ * Validates provided api version against apiVersionConfig availableApiVersions array
+ * 
+ * @private
+ * @param {Object} req
+ */
+Route.prototype.validateApiVersion_ = function (apiVersion) {
+  var self = this;
+  var availableApiVersions = _.get(self, 'apiVersioningConfig.availableApiVersions');
+  if (availableApiVersions &&  !_.includes(availableApiVersions, apiVersion)) {
+    throw new NotFoundError('specified apiVersion not available. Available api versions are: ' + availableApiVersions.join(', '));
+  }
+};
+
+/**
+ * Finds if api versioning is enabled
+ * 
+ * @private
+ */
+Route.prototype.isApiVersioningEnabled_ = function () {
+  var self = this;
+  return _.get(self, 'apiVersioningConfig.enabled') === true;
 };
 
 /**
@@ -128,7 +290,12 @@ Route.prototype.handler = function (handler) {
 Route.prototype.execute_ = function () {
   var self = this;
 
-  this.expressRouter[this.method](this.path, function (req, res, next) {
+  var path = this.path;
+  if (self.isApiVersioningEnabled_() && _.isFunction(self.apiVersioningConfig.generateRoutePathHandler)) {
+    path = self.apiVersioningConfig.generateRoutePathHandler(path);
+  }
+
+  this.expressRouter[this.method](path, function (req, res, next) {
     // return for testing purposes...
     return self.handlerMiddleware_(req, res, next);
   });
@@ -213,7 +380,22 @@ Route.prototype.handle_ = function (req, res, next) {
   });
 
   return promise.then(function () {
-    var result = self.handlerFunc.call(context, req, res, next);
+    var apiVersion = undefined;
+
+    if (self.isApiVersioningEnabled_()) {
+      // Try to find api version from request. This also validates it and may throw an error.
+      apiVersion = self.findApiVersionFromRequest_(req);
+    }
+    var handler = self.findHandler_(
+      apiVersion,
+      _.get(self, 'apiVersioningConfig.fallbackToDefaultHandler', true),
+      _.get(self, 'apiVersioningConfig.fallbackToPreviousApiVersion', true)
+    );
+    if (!handler) {
+      throw new NotFoundError('Handler not found');
+    }
+
+    var result = handler.call(context, req, res, next);
     if (self._omitResultHandlers) {
       return Promise.resolve(result).then(function () {
         return NO_RESULT;

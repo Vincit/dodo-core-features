@@ -9,8 +9,9 @@ var Route = require('./Route');
  * @constructor
  * @param {express.Router} expressRouter
  * @param {function} defaultAuthHandler
+ * @param {Object} apiVersioningConfig
  */
-function Router(expressRouter, defaultAuthHandler, unauthenticatedStatusCode) {
+function Router(expressRouter, defaultAuthHandler, unauthenticatedStatusCode, apiVersioningConfig) {
   /**
    * @type {express.Router}
    */
@@ -23,6 +24,10 @@ function Router(expressRouter, defaultAuthHandler, unauthenticatedStatusCode) {
    * @type {Number}
    */
   this.unauthenticatedStatusCode = unauthenticatedStatusCode || 401;
+  /**
+   * @type {Object}
+   */
+  this.apiVersioningConfig = apiVersioningConfig
 }
 
 /**
@@ -165,7 +170,8 @@ Router.prototype._route = function (path, method) {
     method: method,
     expressRouter: this.expressRouter,
     defaultAuthHandler: this.defaultAuthHandler,
-    unauthenticatedStatusCode: this.unauthenticatedStatusCode
+    unauthenticatedStatusCode: this.unauthenticatedStatusCode,
+    apiVersioningConfig: this.apiVersioningConfig
   });
 };
 
