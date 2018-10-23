@@ -208,12 +208,15 @@ Route.prototype.findHandler_ = function (apiVersion, fallbackToDefault, fallback
   var self = this;
   var handler;
 
+  // If no api version is provided in request
   if (_.isNil(apiVersion)) {
+    // Fallback to default handler, if configured
     if (fallbackToDefault) {
       handler = self.handlerFuncs['default'];
     }
+  // Api version is provided
   } else {
-    // Try to find handler for api version
+    // Try to find handler for the api version
     var handler = self.handlerFuncs[apiVersion];
 
     // If handler is not found, and fallbackToPrevious config is true
@@ -227,9 +230,17 @@ Route.prototype.findHandler_ = function (apiVersion, fallbackToDefault, fallback
         })
         .max() // Get the previous existing api version from the subset
         .value();
+      // Get the handler from handlerFuncs
       if (previousApiVersion !== undefined) {
         handler = self.handlerFuncs[previousApiVersion]; 
       }
+      // If no previous apiVersion handler is found, fallback to default handler if configured
+      if (handler === undefined && fallbackToDefault) {
+        handler = self.handlerFuncs['default'];
+      }
+    // At last resort, fallback to default if configured
+    } else if (!handler && fallbackToDefault) {
+      handler = self.handlerFuncs['default'];
     }
   }
   return handler;
