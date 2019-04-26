@@ -643,6 +643,442 @@ describe('Router', function () {
             expect(nextSpy.calls).to.have.length(1);
           });
       });
+
+      describe.only('API versioning', function() {
+        var apiVersion;
+        var routePattern;
+        var findApiVersionHandler;
+        var generateRoutePathHandler;
+        var handler;
+        var otherHandler;
+        var thirdHandler;
+        var sendData;
+        var sendOtherData;
+
+        beforeEach(function () {
+          routePattern = '/:apiVersion(v\\d+)?';
+          resolvedApiVersion = 1;
+
+          findApiVersionHandler = spy(function(req) {
+            return resolvedApiVersion;
+          });
+          generateRoutePathHandler = spy(function(path) {
+            return routePattern + path;
+          });
+
+          request.app.config = _.assign(request.app.config, {
+            apiVersioning: {
+              enabled: true,
+              availableApiVersions: [1, 2],
+              findApiVersionHandler: findApiVersionHandler,
+              generateRoutePathHandler: generateRoutePathHandler
+            }
+          });
+
+          router = new Router(mockExpressRouter, undefined, 401, request.app.config.apiVersioning);
+
+          sendData = {some: 'data'};
+          otherSendData = {other: 'otherData'};
+          thirdSendData = {other: 'thirdData'};
+
+          handler = spy(function (req, res) {
+            expect(req).to.equal(request);
+            expect(res).to.equal(response);
+            return Promise.resolve(sendData);
+          });
+          otherHandler = spy(function (req, res) {
+            expect(req).to.equal(request);
+            expect(res).to.equal(response);
+            return Promise.resolve(otherSendData);
+          });
+          thirdHandler = spy(function (req, res) {
+            expect(req).to.equal(request);
+            expect(res).to.equal(response);
+            return Promise.resolve(thirdSendData);
+          });
+        });
+
+        it('should be able to register a versioned handler', function () {
+          router[method]('/some/path')
+            .public()
+            .handler(1, handler);
+  
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(handler.calls).length(1);
+              expect(response.sentData).to.eql(JSON.stringify(sendData));
+              expect(generateRoutePathHandler.calls).length(1);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        it('should be able to register a versioned handler when using an auth handler', function () {
+          var auth = spy(function(req) {
+            expect(req).to.equal(request);
+            return true;
+          });
+          router[method]('/some/path')
+            .public()
+            .auth(auth)
+            .handler(1, handler);
+  
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(auth.calls).length(1);
+              expect(handler.calls).length(1);
+              expect(response.sentData).to.eql(JSON.stringify(sendData));
+              expect(generateRoutePathHandler.calls).length(1);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        it('should be able to register a versioned handler when using multiple auth handlers', function () {
+          var auth = spy(function(req) {
+            expect(req).to.equal(request);
+            return true;
+          });
+          var auth2 = spy(function(req) {
+            expect(req).to.equal(request);
+            return true;
+          });
+          router[method]('/some/path')
+            .public()
+            .auth(auth)
+            .auth(auth2)
+            .handler(1, handler);
+  
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(auth.calls).length(1);
+              expect(auth2.calls).length(1);
+              expect(handler.calls).length(1);
+              expect(response.sentData).to.eql(JSON.stringify(sendData));
+              expect(generateRoutePathHandler.calls).length(1);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        it('should be able to register a versioned handler when using middleware', function () {
+          var middlewareSpy = spy(function (req, res, next) {
+            expect(req).to.equal(request);
+            expect(res).to.equal(response);
+            setTimeout(next, 20);
+          });
+
+          router[method]('/some/path')
+            .public()
+            .middleware(middlewareSpy)
+            .handler(1, handler);
+  
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(middlewareSpy.calls).length(1);
+              expect(handler.calls).length(1);
+              expect(response.sentData).to.eql(JSON.stringify(sendData));
+              expect(generateRoutePathHandler.calls).length(1);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        it('should be able to register a versioned handler for two different versions', function () {
+          router[method]('/some/path')
+            .public()
+            .handler(1, handler)
+            .handler(2, otherHandler);
+
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(handler.calls).length(1);
+              expect(otherHandler.calls).length(0);
+              expect(response.sentData).to.eql(JSON.stringify(sendData));
+              expect(generateRoutePathHandler.calls).length(2);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        it('should register generated path correctly', function () {
+          router[method]('/some/path')
+            .public()
+            .handler(1, handler)
+          
+          expect(generateRoutePathHandler.calls).length(1);
+          expect(mockExpressRouter.path).to.equal(routePattern+'/some/path');
+        });
+
+        it('should not be able to register versioned handler two times for same API version', function () {
+          expect(function() {
+            router[method]('/some/path')
+              .public()
+              .handler(1, handler)
+              .handler(1, otherHandler);
+          }).throwError();
+        });
+
+        it('should be able to register a default handler and an other versioned handler', function () {
+          router[method]('/some/path')
+            .public()
+            .handler(1, handler)
+            .defaultHandler(2, otherHandler);
+  
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(handler.calls).length(1);
+              expect(otherHandler.calls).length(0);
+              expect(response.sentData).to.eql(JSON.stringify(sendData));
+              expect(generateRoutePathHandler.calls).length(2);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        it('should be able to register a handler without defined api version, and an other versioned handler', function () {
+          router[method]('/some/path')
+            .public()
+            .handler(handler)
+            .handler(1, otherHandler);
+  
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(handler.calls).length(0);
+              expect(otherHandler.calls).length(1);
+              expect(response.sentData).to.eql(JSON.stringify(otherSendData));
+              expect(generateRoutePathHandler.calls).length(2);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        it('should fallback to default handler if version not provided in request', function () {
+          resolvedApiVersion = undefined;
+
+          router[method]('/some/path')
+            .public()
+            .handler(1, handler)
+            .defaultHandler(2, otherHandler);
+  
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(handler.calls).length(0);
+              expect(otherHandler.calls).length(1);
+              expect(response.sentData).to.eql(JSON.stringify(otherSendData));
+              expect(generateRoutePathHandler.calls).length(2);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        it('should fallback to next api version by default if using bigger api version than defined in route handlers', function () {
+          request.app.config.apiVersioning.availableApiVersions = [1, 2, 3, 4];
+
+          router = new Router(
+            mockExpressRouter,
+            undefined,
+            401,
+            request.app.config.apiVersioning
+          );
+          resolvedApiVersion = 3;
+
+          router[method]('/some/path')
+            .public()
+            .defaultHandler(1, handler)
+            .handler(2, otherHandler)
+            .handler(4, thirdHandler);
+
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(handler.calls).length(0);
+              expect(otherHandler.calls).length(1);
+              expect(thirdHandler.calls).length(0);
+              expect(response.sentData).to.eql(JSON.stringify(otherSendData));
+              expect(generateRoutePathHandler.calls).length(3);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        it('should fallback to default handler by default if no other handlers are available (with smaller api version)', function () {
+          request.app.config.apiVersioning.availableApiVersions = [1, 2, 3, 4];
+
+          router = new Router(
+            mockExpressRouter,
+            undefined,
+            401,
+            request.app.config.apiVersioning
+          );
+          resolvedApiVersion = 3;
+
+          router[method]('/some/path')
+            .public()
+            .handler(handler)
+            .handler(4, otherHandler)
+
+          return mockExpressRouter.simulateRequest(request, response)
+            .then(function () {
+              expect(response.statusCode).to.equal(200);
+              expect(handler.calls).length(1);
+              expect(otherHandler.calls).length(0);
+              expect(response.sentData).to.eql(JSON.stringify(sendData));
+              expect(generateRoutePathHandler.calls).length(2);
+              expect(findApiVersionHandler.calls).length(1);
+            });
+        });
+
+        describe('fallbackToDefaultHandler config is set to false', function() {
+          beforeEach(function() {
+            router = new Router(
+              mockExpressRouter,
+              undefined,
+              401,
+              _.assign(request.app.config.apiVersioning, {
+                fallbackToDefaultHandler: false
+              })
+            );
+  
+            resolvedApiVersion = undefined;
+          });
+
+          it('should not fallback to default handler', function () {
+            router[method]('/some/path')
+              .public()
+              .handler(1, handler)
+              .defaultHandler(2, otherHandler);
+            
+              return mockExpressRouter.simulateRequest(request, response)
+                .then(function() {
+                  expect().fail('should not succeed with unkown api version');
+                })
+                .catch(function(error) {
+                  expect(error.data.reason).to.equal('Api version must be defined');
+                });
+          });
+        });
+
+        describe('fallbackToPreviousApiVersion config is set to false', function() {
+
+          beforeEach(function() {
+            request.app.config.apiVersioning.availableApiVersions = [1, 2, 3, 4];
+  
+            router = new Router(
+              mockExpressRouter,
+              undefined,
+              401,
+              _.assign(request.app.config.apiVersioning, {
+                fallbackToPreviousApiVersion: false
+              })
+            );
+            resolvedApiVersion = 3;
+          });
+
+          it('should not fallback to previous api version', function () {
+  
+            router[method]('/some/path')
+              .public()
+              .handler(1, handler)
+              .handler(2, otherHandler);
+    
+            return mockExpressRouter.simulateRequest(request, response)
+              .then(function() {
+                expect().fail('should not succeed because handler is not defined for this api version');
+              })
+              .catch(function(error) {
+                expect(error.data.reason).to.equal('Handler not found');
+              });
+          });
+
+          it('should fallback to default handler', function () {
+  
+            router[method]('/some/path')
+              .public()
+              .handler(handler)
+              .handler(4, otherHandler)
+  
+            return mockExpressRouter.simulateRequest(request, response)
+              .then(function () {
+                expect(response.statusCode).to.equal(200);
+                expect(handler.calls).length(1);
+                expect(otherHandler.calls).length(0);
+                expect(response.sentData).to.eql(JSON.stringify(sendData));
+                expect(generateRoutePathHandler.calls).length(2);
+                expect(findApiVersionHandler.calls).length(1);
+              });
+          });
+  
+        });
+
+        describe('fallbackToPreviousApiVersion and fallbackToDefaultHandler configs are set to false', function() {
+
+          beforeEach(function() {
+            request.app.config.apiVersioning.availableApiVersions = [1, 2, 3, 4];
+  
+            router = new Router(
+              mockExpressRouter,
+              undefined,
+              401,
+              _.assign(request.app.config.apiVersioning, {
+                fallbackToPreviousApiVersion: false,
+                fallbackToDefaultHandler: false
+              })
+            );
+            resolvedApiVersion = 3;
+          });
+
+          it('should not fallback to previous api version', function () {
+  
+            router[method]('/some/path')
+              .public()
+              .handler(1, handler)
+              .handler(2, otherHandler);
+    
+            return mockExpressRouter.simulateRequest(request, response)
+              .then(function() {
+                expect().fail('should not succeed because handler is not defined for this api version');
+              })
+              .catch(function(error) {
+                expect(error.data.reason).to.equal('Handler not found');
+              });
+          });
+
+          it('should not fallback to default handler', function () {
+  
+            router[method]('/some/path')
+              .public()
+              .handler(handler)
+              .handler(4, otherHandler)
+  
+              return mockExpressRouter.simulateRequest(request, response)
+                .then(function() {
+                  expect().fail('should not succeed because handler is not defined for this api version');
+                })
+                .catch(function(error) {
+                  expect(error.data.reason).to.equal('Handler not found');
+                });
+          });
+  
+        });
+
+        it('status code should be 404 if trying to use unknown api version', function () {
+          resolvedApiVersion = 3;
+
+          router[method]('/some/path')
+            .public()
+            .handler(1, handler)
+          
+            return mockExpressRouter.simulateRequest(request, response)
+              .then(function() {
+                expect().fail('should not succeed with unkown api version');
+              })
+              .catch(function(error) {
+                expect(error.data.reason).to.equal('specified apiVersion not available. Available api versions are: 1, 2');
+              });
+        });
+
+      });
+
     });
   });
 

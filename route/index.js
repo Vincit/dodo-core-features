@@ -91,7 +91,7 @@ module.exports = function (app, config) {
 
     if (!router) {
       expressRouter = express.Router();
-      router = new Router(expressRouter, config.defaultAuthHandler, config.unauthenticatedStatusCode);
+      router = new Router(expressRouter, config.defaultAuthHandler, config.unauthenticatedStatusCode, config.apiVersioning);
 
       if (!testing) {
         router = addLoggingToRouter(router, rootPath);
